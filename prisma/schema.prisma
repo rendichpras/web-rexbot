@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                Int       @id @default(autoincrement())
+  username          String?   @unique @default("")
+  phoneNumber       String    @unique
+  password          String?   @default("")
+  registered        Boolean   @default(false)
+  coin              Int       @default(0)
+  xp                Int       @default(0)
+  level             Int       @default(1)
+  winGame           Int       @default(0) // jumlah kemenangan game
+  premium           Boolean   @default(false)
+  premiumExpiration DateTime?
+  banned            Boolean   @default(false)
+  autolevelup       Boolean   @default(true)
+  lastSentMsg       Json?     @db.JsonB
+  lastClaim         Json?     @db.JsonB
+  afk               Json?     @db.JsonB
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([phoneNumber])
+  @@index([username])
+}
+
+model Group {
+  id              String    @id // group jid
+  mutebot         String?   // true/false/"owner"
+  mute            String[]  // Array dari phoneNumber yang di-mute
+  sewa            Boolean   @default(false)
+  sewaExpiration  DateTime?
+  option          Json      @default("{}") // Opsi grup
+  text            Json?     // {welcome?: string, goodbye?: string, intro?: string}
+  warnings        Json      @default("{}") // {phoneNumber: jumlahWarning}
+  maxwarnings     Int       @default(3)
+  spam            Json?     // {phoneNumber: {count: number, lastMessageTime: number}}
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("groups")
+}
+
+model Bot {
+  id              String    @id @default("bot")
+  mode            String?   // "group"/"private"/"self"/"public"
+  settings        Json?     // Pengaturan bot lainnya
+  restart         Json?     // {jid: string, timestamp: number, key: any}
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("bot_settings")
+}
+
+model Menfess {
+  id              String    @id // random 6 karakter
+  fromNumber      String    // phoneNumber pengirim
+  toNumber        String    // phoneNumber penerima
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("menfess")
+} 
