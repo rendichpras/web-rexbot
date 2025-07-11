@@ -15,7 +15,6 @@ import { Eye, EyeOff } from "lucide-react"
 import { PhoneInput } from "@/components/phone-input"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
 import {
   Form,
   FormControl,
@@ -24,21 +23,11 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-
-const formSchema = z.object({
-  phone: z
-    .string()
-    .min(10, "Nomor telepon tidak valid")
-    .regex(/^\+?[1-9]\d{1,14}$/, "Format nomor telepon tidak valid"),
-  password: z
-    .string()
-    .min(1, "Password harus diisi"),
-})
-
-type FormValues = z.infer<typeof formSchema>
+import { TermsDialog } from "@/components/terms-dialog"
+import { loginFormSchema, type LoginFormValues } from "@/utils/validation-schemas"
+import { handleLogin } from "@/utils/auth"
 
 export function FormMasuk({
   className,
@@ -46,56 +35,30 @@ export function FormMasuk({
 }: React.ComponentProps<"div">) {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [showTerms, setShowTerms] = useState(false)
   const router = useRouter()
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginFormSchema),
     defaultValues: {
       phone: "",
       password: "",
     },
   })
 
-  async function onSubmit(data: FormValues) {
+  async function onSubmit(data: LoginFormValues) {
     try {
       setIsLoading(true)
-      
-      // Panggil API login
-      const response = await fetch("/api/masuk", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          phone: data.phone,
-          password: data.password,
-        }),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        toast.error(result.error)
-        return
-      }
-
-      // Jika berhasil, lakukan sign in dengan NextAuth
-      const signInResult = await signIn("credentials", {
-        phone: data.phone,
-        password: data.password,
-        redirect: false,
-      })
-
-      if (signInResult?.error) {
-        toast.error(signInResult.error)
-        return
-      }
-
+      await handleLogin(data.phone, data.password)
       router.push("/dasbor")
       router.refresh()
       toast.success("Masuk berhasil!")
     } catch (error) {
-      toast.error("Terjadi kesalahan saat masuk")
+      if (error instanceof Error) {
+        toast.error(error.message)
+      } else {
+        toast.error("Terjadi kesalahan saat masuk")
+      }
     } finally {
       setIsLoading(false)
     }
@@ -172,16 +135,33 @@ export function FormMasuk({
                 {isLoading ? "Memproses..." : "Masuk"}
               </Button>
 
-              <div className="mt-4 text-center text-sm">
+              <div className="mt-2 text-center text-sm">
                 Belum punya akun?{" "}
-                <a href="/daftar" className="underline underline-offset-4">
+                <a href="/daftar" className="underline text-primary">
                   Daftar di sini
                 </a>
+              </div>
+              <div className="text-center text-xs text-muted-foreground">
+                Dengan masuk, Anda menyetujui{" "}
+                <button
+                  type="button"
+                  onClick={() => setShowTerms(true)}
+                  className="text-primary underline"
+                >
+                  syarat dan ketentuan
+                </button>{" "}
+                yang berlaku
               </div>
             </form>
           </Form>
         </CardContent>
       </Card>
+
+      <TermsDialog 
+        open={showTerms} 
+        onOpenChange={setShowTerms}
+        onAccept={() => setShowTerms(false)}
+      />
     </div>
   )
 }

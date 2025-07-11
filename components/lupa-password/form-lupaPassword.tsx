@@ -12,7 +12,6 @@ import {
 import { PhoneInput } from "@/components/phone-input"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
 import {
   Form,
   FormControl,
@@ -21,30 +20,50 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-
-const formSchema = z.object({
-  phone: z
-    .string()
-    .min(10, "Nomor telepon tidak valid")
-    .regex(/^\+?[1-9]\d{1,14}$/, "Format nomor telepon tidak valid"),
-})
-
-type FormValues = z.infer<typeof formSchema>
+import { useState } from "react"
+import { OTPDialog } from "@/components/otp-dialog"
+import { ChangePasswordDialog } from "./change-password-dialog"
+import { toast } from "sonner"
+import { useRouter } from "next/navigation"
+import { forgotPasswordFormSchema, type ForgotPasswordFormValues } from "@/utils/validation-schemas"
 
 export function FormLupaPassword({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+  const [isOTPDialogOpen, setIsOTPDialogOpen] = useState(false)
+  const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
+
+  const form = useForm<ForgotPasswordFormValues>({
+    resolver: zodResolver(forgotPasswordFormSchema),
     defaultValues: {
       phone: "",
     },
   })
 
-  function onSubmit(data: FormValues) {
-    console.log(data)
-    // Implementasi logika reset password di sini
+  async function onSubmit(data: ForgotPasswordFormValues) {
+    setIsLoading(true)
+    try {
+      // Buka dialog OTP
+      setIsOTPDialogOpen(true)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Terjadi kesalahan")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleVerified = () => {
+    // Buka dialog ganti password
+    setIsChangePasswordDialogOpen(true)
+  }
+
+  const handlePasswordChanged = () => {
+    toast.success("Password berhasil diubah! Silakan masuk dengan password baru Anda.")
+    // Redirect ke halaman login
+    router.push("/masuk")
   }
 
   return (
@@ -78,13 +97,13 @@ export function FormLupaPassword({
                 )}
               />
 
-              <Button type="submit" className="w-full">
-                Minta OTP
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Memproses..." : "Minta OTP"}
               </Button>
 
               <div className="mt-4 text-center text-sm">
                 Ingat password?{" "}
-                <a href="/masuk" className="underline underline-offset-4">
+                <a href="/masuk" className="underline text-primary">
                   Masuk di sini
                 </a>
               </div>
@@ -92,6 +111,21 @@ export function FormLupaPassword({
           </Form>
         </CardContent>
       </Card>
+
+      <OTPDialog
+        open={isOTPDialogOpen}
+        onOpenChange={setIsOTPDialogOpen}
+        phoneNumber={form.getValues("phone")}
+        onVerified={handleVerified}
+        type="reset_password"
+      />
+
+      <ChangePasswordDialog
+        open={isChangePasswordDialogOpen}
+        onOpenChange={setIsChangePasswordDialogOpen}
+        phoneNumber={form.getValues("phone")}
+        onSuccess={handlePasswordChanged}
+      />
     </div>
   )
 }

@@ -9,7 +9,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   Trophy,
   Crown,
@@ -19,8 +18,7 @@ import {
   Ban,
   Star,
   Gamepad2,
-  Phone,
-  LogOut,
+  Phone
 } from "lucide-react"
 import { signOut, useSession } from "next-auth/react"
 import { useEffect, useState } from "react"

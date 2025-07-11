@@ -15,7 +15,6 @@ import { Eye, EyeOff } from "lucide-react"
 import { PhoneInput } from "@/components/phone-input"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
 import {
   Form,
   FormControl,
@@ -24,33 +23,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-
-const formSchema = z.object({
-  username: z
-    .string()
-    .min(3, "Username minimal 3 karakter")
-    .max(20, "Username maksimal 20 karakter")
-    .regex(/^[a-z0-9_]+$/, "Username hanya boleh berisi huruf kecil, angka, dan underscore"),
-  phone: z
-    .string()
-    .min(10, "Nomor telepon tidak valid")
-    .regex(/^\+?[1-9]\d{1,14}$/, "Format nomor telepon tidak valid"),
-  password: z
-    .string()
-    .min(8, "Password minimal 8 karakter")
-    .regex(/[A-Z]/, "Password harus mengandung huruf besar")
-    .regex(/[a-z]/, "Password harus mengandung huruf kecil")
-    .regex(/[0-9]/, "Password harus mengandung angka")
-    .regex(/[^A-Za-z0-9]/, "Password harus mengandung karakter khusus"),
-  confirmPassword: z.string()
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Password tidak cocok",
-  path: ["confirmPassword"],
-})
-
-type FormValues = z.infer<typeof formSchema>
+import { TermsDialog } from "@/components/terms-dialog"
+import { OTPDialog } from "@/components/otp-dialog"
+import { registerFormSchema, type RegisterFormValues } from "@/utils/validation-schemas"
+import { handleRegister } from "@/utils/auth"
 
 export function FormDaftar({
   className,
@@ -59,39 +38,33 @@ export function FormDaftar({
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [showTerms, setShowTerms] = useState(false)
+  const [showOTP, setShowOTP] = useState(false)
+  const [formData, setFormData] = useState<RegisterFormValues | null>(null)
   const router = useRouter()
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerFormSchema),
     defaultValues: {
       username: "",
       phone: "",
       password: "",
       confirmPassword: "",
+      terms: false,
     },
   })
 
-  async function onSubmit(data: FormValues) {
+  async function onSubmit(data: RegisterFormValues) {
+    setFormData(data)
+    setShowOTP(true)
+  }
+
+  const handleVerified = async () => {
+    if (!formData) return
+
     try {
       setIsLoading(true)
-      const response = await fetch("/api/daftar", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: data.username,
-          phoneNumber: data.phone,
-          password: data.password,
-        }),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || "Terjadi kesalahan saat mendaftar")
-      }
-
+      await handleRegister(formData.username, formData.phone, formData.password)
       toast.success("Pendaftaran berhasil!")
       router.push("/masuk")
     } catch (error) {
@@ -215,13 +188,45 @@ export function FormDaftar({
                 )}
               />
 
+              <FormField
+                control={form.control}
+                name="terms"
+                render={({ field }) => (
+                  <FormItem className="flex items-start space-x-2">
+                    <FormControl>
+                      <Checkbox
+                        className="mt-1"
+                        checked={field.value}
+                        onCheckedChange={(checked) => {
+                          field.onChange(checked)
+                        }}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Saya menyetujui{" "}
+                        <button
+                          type="button"
+                          onClick={() => setShowTerms(true)}
+                          className="text-primary underline"
+                        >
+                          syarat dan ketentuan
+                        </button>{" "}
+                        yang berlaku
+                      </FormLabel>
+                      <FormMessage />
+                    </div>
+                  </FormItem>
+                )}
+              />
+
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Memproses..." : "Daftar"}
               </Button>
 
-              <div className="mt-4 text-center text-sm">
+              <div className="mt-2 text-center text-sm">
                 Sudah punya akun?{" "}
-                <a href="/masuk" className="underline underline-offset-4">
+                <a href="/masuk" className="underline text-primary">
                   Masuk di sini
                 </a>
               </div>
@@ -229,6 +234,20 @@ export function FormDaftar({
           </Form>
         </CardContent>
       </Card>
+
+      <TermsDialog 
+        open={showTerms} 
+        onOpenChange={setShowTerms}
+        onAccept={() => setShowTerms(false)}
+      />
+
+      <OTPDialog
+        open={showOTP}
+        onOpenChange={setShowOTP}
+        onVerified={handleVerified}
+        phoneNumber={formData?.phone || ""}
+        type="registration"
+      />
     </div>
   )
 }
