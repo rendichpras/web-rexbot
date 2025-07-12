@@ -156,18 +156,19 @@ export function OTPDialog({ open, onOpenChange, phoneNumber, onVerified, type }:
           </InputOTP>
 
           <div className="flex flex-col items-center gap-2 text-sm">
-            <p className="text-muted-foreground">
-              Waktu tersisa: {formatTime(timeLeft)}
-            </p>
-            {canResend && (
+            {canResend ? (
               <Button
                 variant="ghost"
                 disabled={isLoading}
                 onClick={requestOTP}
                 className="h-auto p-0 text-primary"
               >
-                Kirim ulang kode
+                Kirim ulang kode OTP
               </Button>
+            ) : (
+              <p className="text-muted-foreground">
+                Kirim ulang dalam ({formatTime(timeLeft)})
+              </p>
             )}
           </div>
 

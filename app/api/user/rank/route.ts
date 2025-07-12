@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
-export async function POST(req: Request) {
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -13,12 +13,12 @@ export async function POST(req: Request) {
       )
     }
 
-    const body = await req.json()
-    const { phone, autolevelup } = body
+    const { searchParams } = new URL(req.url)
+    const phone = searchParams.get("phone")
 
-    if (typeof phone !== 'string' || typeof autolevelup !== 'boolean') {
+    if (!phone) {
       return NextResponse.json(
-        { error: "Invalid request body" },
+        { error: "Phone number is required" },
         { status: 400 }
       )
     }
@@ -34,16 +34,29 @@ export async function POST(req: Request) {
       )
     }
 
-    // Update status auto levelup
-    const user = await prisma.user.update({
-      where: { phoneNumber: cleanPhoneNumber },
-      data: { autolevelup },
-      select: { autolevelup: true }
+    // Dapatkan total user
+    const totalUsers = await prisma.user.count()
+
+    // Dapatkan peringkat user berdasarkan winGame
+    const userRank = await prisma.user.count({
+      where: {
+        winGame: {
+          gt: (
+            await prisma.user.findUnique({
+              where: { phoneNumber: cleanPhoneNumber },
+              select: { winGame: true }
+            })
+          )?.winGame || 0
+        }
+      }
     })
 
-    return NextResponse.json(user)
+    return NextResponse.json({
+      rank: userRank + 1, // +1 karena count dimulai dari 0
+      total: totalUsers
+    })
   } catch (error) {
-    console.error("Error updating auto levelup:", error)
+    console.error("Error fetching user rank:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

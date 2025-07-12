@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
-import { Home, Menu, LayoutDashboard } from "lucide-react"
+import { Home, Menu, LayoutDashboard, User, LogOut } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useSession } from "next-auth/react"
 import {
@@ -13,14 +13,28 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
   SheetTrigger,
 } from "@/components/ui/sheet"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { signOut } from "next-auth/react"
 
 export function Navbar() {
   const pathname = usePathname()
   const { data: session } = useSession()
+
+  // Fungsi untuk mendapatkan inisial username
+  const getInitials = (username: string) => {
+    return username
+      ? username.slice(0, 2).toUpperCase()
+      : 'U'
+  }
 
   // Sembunyikan navbar di halaman auth
   if (pathname === "/masuk" || pathname === "/daftar" || pathname === "/lupa-password") {
@@ -57,28 +71,61 @@ export function Navbar() {
           </Link>
         </div>
 
-        {/* Tombol Auth Desktop */}
+        {/* Avatar dan Auth Menu Desktop */}
         <div className="hidden md:flex items-center gap-2">
           <ThemeToggle />
           {session ? (
-            <Link href="/dasbor">
-              <Button size="sm">
-                Dasbor
-              </Button>
-            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback>
+                      {getInitials(session.user?.username || 'User')}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuItem className="flex items-center gap-2" asChild>
+                  <Link href="/dasbor">
+                    <LayoutDashboard className="h-4 w-4" />
+                    <span>Dasbor</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  className="flex items-center gap-2 text-destructive focus:text-destructive" 
+                  onClick={() => signOut()}
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Keluar</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
-            <>
-              <Link href="/daftar">
-                <Button variant="outline" size="sm">
-                  Daftar
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback>
+                      <User className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
                 </Button>
-              </Link>
-              <Link href="/masuk">
-                <Button size="sm">
-                  Masuk
-                </Button>
-              </Link>
-            </>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuItem asChild>
+                  <Link href="/masuk" className="w-full">
+                    Masuk
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/daftar" className="w-full">
+                    Daftar
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
 
@@ -94,8 +141,6 @@ export function Navbar() {
             <SheetContent side="right" className="w-full max-w-xs p-0">
               <SheetHeader className="border-b px-6 py-4">
                 <SheetTitle>Menu Navigasi</SheetTitle>
-                <SheetDescription>
-              </SheetDescription>
               </SheetHeader>
               <nav className="flex flex-col h-full">
                 <div className="flex-1">
@@ -135,12 +180,12 @@ export function Navbar() {
                       </Button>
                     ) : (
                       <>
-                        <Link href="/daftar">
+                        <Link href="/daftar" className="w-full">
                           <Button variant="outline" className="w-full" size="sm">
                             Daftar
                           </Button>
                         </Link>
-                        <Link href="/masuk">
+                        <Link href="/masuk" className="w-full">
                           <Button className="w-full" size="sm">
                             Masuk
                           </Button>

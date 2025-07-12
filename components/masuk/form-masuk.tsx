@@ -8,6 +8,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useState } from "react"
@@ -15,6 +16,7 @@ import { Eye, EyeOff } from "lucide-react"
 import { PhoneInput } from "@/components/phone-input"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import {
   Form,
   FormControl,
@@ -23,11 +25,22 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
+import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { TermsDialog } from "@/components/terms-dialog"
-import { loginFormSchema, type LoginFormValues } from "@/utils/validation-schemas"
-import { handleLogin } from "@/utils/auth"
+
+const formSchema = z.object({
+  phone: z
+    .string()
+    .min(10, "Nomor telepon tidak valid")
+    .regex(/^\+?[1-9]\d{1,14}$/, "Format nomor telepon tidak valid"),
+  password: z
+    .string()
+    .min(1, "Password harus diisi"),
+})
+
+type FormValues = z.infer<typeof formSchema>
 
 export function FormMasuk({
   className,
@@ -38,38 +51,65 @@ export function FormMasuk({
   const [showTerms, setShowTerms] = useState(false)
   const router = useRouter()
 
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginFormSchema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       phone: "",
       password: "",
     },
   })
 
-  async function onSubmit(data: LoginFormValues) {
+  async function onSubmit(data: FormValues) {
     try {
       setIsLoading(true)
-      await handleLogin(data.phone, data.password)
+      
+      // Panggil API login
+      const response = await fetch("/api/masuk", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phone: data.phone,
+          password: data.password,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        toast.error(result.error)
+        return
+      }
+
+      // Jika berhasil, lakukan sign in dengan NextAuth
+      const signInResult = await signIn("credentials", {
+        phone: data.phone,
+        password: data.password,
+        redirect: false,
+      })
+
+      if (signInResult?.error) {
+        toast.error(signInResult.error)
+        return
+      }
+
       router.push("/dasbor")
       router.refresh()
       toast.success("Masuk berhasil!")
     } catch (error) {
-      if (error instanceof Error) {
-        toast.error(error.message)
-      } else {
-        toast.error("Terjadi kesalahan saat masuk")
-      }
+      toast.error("Terjadi kesalahan saat masuk")
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div className={cn("container max-w-[400px] mx-auto py-10", className)} {...props}>
       <Card>
-        <CardHeader>
-          <CardTitle>Masuk ke Akun Anda</CardTitle>
-          <CardDescription>
+        <CardHeader className="space-y-2">
+          <CardTitle className="text-2xl text-center">Masuk ke Akun</CardTitle>
+          <CardDescription className="text-center">
             Masukkan nomor telepon dan password untuk masuk
           </CardDescription>
         </CardHeader>
@@ -88,6 +128,7 @@ export function FormMasuk({
                         defaultCountry="ID"
                         international
                         onChange={(value) => onChange(value || "")}
+                        className="bg-background"
                       />
                     </FormControl>
                     <FormMessage />
@@ -104,7 +145,7 @@ export function FormMasuk({
                       <FormLabel>Password</FormLabel>
                       <a
                         href="/lupa-password"
-                        className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+                        className="text-sm text-primary hover:underline"
                       >
                         Lupa password?
                       </a>
@@ -114,6 +155,7 @@ export function FormMasuk({
                         <Input
                           {...field}
                           type={showPassword ? "text" : "password"}
+                          placeholder="Masukkan password"
                         />
                         <Button
                           type="button"
@@ -134,27 +176,18 @@ export function FormMasuk({
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Memproses..." : "Masuk"}
               </Button>
-
-              <div className="mt-2 text-center text-sm">
-                Belum punya akun?{" "}
-                <a href="/daftar" className="underline text-primary">
-                  Daftar di sini
-                </a>
-              </div>
-              <div className="text-center text-xs text-muted-foreground">
-                Dengan masuk, Anda menyetujui{" "}
-                <button
-                  type="button"
-                  onClick={() => setShowTerms(true)}
-                  className="text-primary underline"
-                >
-                  syarat dan ketentuan
-                </button>{" "}
-                yang berlaku
-              </div>
             </form>
           </Form>
         </CardContent>
+
+        <CardFooter className="flex-col space-y-4 border-t pt-6">
+          <div className="text-center text-sm text-muted-foreground">
+            Belum punya akun?{" "}
+            <a href="/daftar" className="font-medium text-primary hover:underline">
+              Daftar di sini
+            </a>
+          </div>
+        </CardFooter>
       </Card>
 
       <TermsDialog 

@@ -8,13 +8,21 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { useState } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { PhoneInput } from "@/components/phone-input"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import {
   Form,
   FormControl,
@@ -28,8 +36,34 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { TermsDialog } from "@/components/terms-dialog"
 import { OTPDialog } from "@/components/otp-dialog"
-import { registerFormSchema, type RegisterFormValues } from "@/utils/validation-schemas"
-import { handleRegister } from "@/utils/auth"
+
+const formSchema = z.object({
+  username: z
+    .string()
+    .min(3, "Username minimal 3 karakter")
+    .max(20, "Username maksimal 20 karakter")
+    .regex(/^[a-z0-9_]+$/, "Username hanya boleh berisi huruf kecil, angka, dan underscore"),
+  phone: z
+    .string()
+    .min(10, "Nomor telepon tidak valid")
+    .regex(/^\+?[1-9]\d{1,14}$/, "Format nomor telepon tidak valid"),
+  password: z
+    .string()
+    .min(8, "Password minimal 8 karakter")
+    .regex(/[A-Z]/, "Password harus mengandung huruf besar")
+    .regex(/[a-z]/, "Password harus mengandung huruf kecil")
+    .regex(/[0-9]/, "Password harus mengandung angka")
+    .regex(/[^A-Za-z0-9]/, "Password harus mengandung karakter khusus"),
+  confirmPassword: z.string(),
+  terms: z.boolean().refine((value) => value === true, {
+    message: "Anda harus menyetujui syarat dan ketentuan",
+  }),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Password tidak cocok",
+  path: ["confirmPassword"],
+})
+
+type FormValues = z.infer<typeof formSchema>
 
 export function FormDaftar({
   className,
@@ -40,11 +74,11 @@ export function FormDaftar({
   const [isLoading, setIsLoading] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
   const [showOTP, setShowOTP] = useState(false)
-  const [formData, setFormData] = useState<RegisterFormValues | null>(null)
+  const [formData, setFormData] = useState<FormValues | null>(null)
   const router = useRouter()
 
-  const form = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerFormSchema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       username: "",
       phone: "",
@@ -54,7 +88,7 @@ export function FormDaftar({
     },
   })
 
-  async function onSubmit(data: RegisterFormValues) {
+  async function onSubmit(data: FormValues) {
     setFormData(data)
     setShowOTP(true)
   }
@@ -64,7 +98,24 @@ export function FormDaftar({
 
     try {
       setIsLoading(true)
-      await handleRegister(formData.username, formData.phone, formData.password)
+      const response = await fetch("/api/daftar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          phoneNumber: formData.phone,
+          password: formData.password,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || "Terjadi kesalahan saat mendaftar")
+      }
+
       toast.success("Pendaftaran berhasil!")
       router.push("/masuk")
     } catch (error) {
@@ -79,11 +130,11 @@ export function FormDaftar({
   }
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div className={cn("container max-w-[400px] mx-auto py-10", className)} {...props}>
       <Card>
-        <CardHeader>
-          <CardTitle>Daftar Akun Baru</CardTitle>
-          <CardDescription>
+        <CardHeader className="space-y-2">
+          <CardTitle className="text-2xl text-center">Daftar Akun Baru</CardTitle>
+          <CardDescription className="text-center">
             Silakan isi data diri Anda untuk membuat akun baru
           </CardDescription>
         </CardHeader>
@@ -125,6 +176,7 @@ export function FormDaftar({
                         defaultCountry="ID"
                         international
                         onChange={(value) => onChange(value || "")}
+                        className="bg-background"
                       />
                     </FormControl>
                     <FormMessage />
@@ -143,6 +195,7 @@ export function FormDaftar({
                         <Input
                           {...field}
                           type={showPassword ? "text" : "password"}
+                          placeholder="Masukkan password"
                         />
                         <Button
                           type="button"
@@ -171,6 +224,7 @@ export function FormDaftar({
                         <Input
                           {...field}
                           type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Konfirmasi password"
                         />
                         <Button
                           type="button"
@@ -195,59 +249,74 @@ export function FormDaftar({
                   <FormItem className="flex items-start space-x-2">
                     <FormControl>
                       <Checkbox
-                        className="mt-1"
                         checked={field.value}
                         onCheckedChange={(checked) => {
-                          field.onChange(checked)
+                          if (!checked) {
+                            field.onChange(checked);
+                          }
+                          setShowTerms(true);
                         }}
                       />
                     </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>
-                        Saya menyetujui{" "}
-                        <button
-                          type="button"
-                          onClick={() => setShowTerms(true)}
-                          className="text-primary underline"
-                        >
-                          syarat dan ketentuan
-                        </button>{" "}
-                        yang berlaku
-                      </FormLabel>
-                      <FormMessage />
+                    <div className="text-sm leading-none">
+                      Saya menyetujui{" "}
+                      <button
+                        type="button"
+                        onClick={() => setShowTerms(true)}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        syarat dan ketentuan
+                      </button>{" "}
+                      yang berlaku
                     </div>
                   </FormItem>
                 )}
               />
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isLoading || !form.watch("terms")}
+              >
                 {isLoading ? "Memproses..." : "Daftar"}
               </Button>
-
-              <div className="mt-2 text-center text-sm">
-                Sudah punya akun?{" "}
-                <a href="/masuk" className="underline text-primary">
-                  Masuk di sini
-                </a>
-              </div>
             </form>
           </Form>
         </CardContent>
+
+        <CardFooter className="flex-col space-y-2 border-t pt-6">
+          <div className="text-center text-sm text-muted-foreground">
+            Sudah punya akun?{" "}
+            <a href="/masuk" className="font-medium text-primary hover:underline">
+              Masuk di sini
+            </a>
+          </div>
+        </CardFooter>
       </Card>
 
       <TermsDialog 
         open={showTerms} 
-        onOpenChange={setShowTerms}
-        onAccept={() => setShowTerms(false)}
+        onOpenChange={(open) => {
+          setShowTerms(open);
+          if (!open) {
+            form.setValue("terms", false);
+          }
+        }}
+        onAccept={() => {
+          form.setValue("terms", true);
+          setShowTerms(false);
+        }}
       />
 
-      <OTPDialog
-        open={showOTP}
-        onOpenChange={setShowOTP}
-        onVerified={handleVerified}
-        phoneNumber={formData?.phone || ""}
-        type="registration"
-      />
+      {formData && (
+        <OTPDialog
+          open={showOTP}
+          onOpenChange={setShowOTP}
+          phoneNumber={formData.phone}
+          onVerified={handleVerified}
+          type="registration"
+        />
+      )}
     </div>
   )
 }
