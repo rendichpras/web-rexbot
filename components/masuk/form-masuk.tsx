@@ -1,6 +1,5 @@
 "use client"
 
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -28,7 +27,6 @@ import {
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { TermsDialog } from "@/components/terms-dialog"
 
 const formSchema = z.object({
   phone: z
@@ -42,13 +40,8 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-export function FormMasuk({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+export function FormMasuk() {
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [showTerms, setShowTerms] = useState(false)
   const router = useRouter()
 
   const form = useForm<FormValues>({
@@ -60,9 +53,13 @@ export function FormMasuk({
   })
 
   async function onSubmit(data: FormValues) {
+    const submitButton = document.querySelector('button[type="submit"]') as HTMLButtonElement
+    if (submitButton) {
+      submitButton.disabled = true
+      submitButton.textContent = "Memproses..."
+    }
+
     try {
-      setIsLoading(true)
-      
       // Panggil API login
       const response = await fetch("/api/masuk", {
         method: "POST",
@@ -78,8 +75,7 @@ export function FormMasuk({
       const result = await response.json()
 
       if (!response.ok) {
-        toast.error(result.error)
-        return
+        throw new Error(result.error)
       }
 
       // Jika berhasil, lakukan sign in dengan NextAuth
@@ -90,22 +86,26 @@ export function FormMasuk({
       })
 
       if (signInResult?.error) {
-        toast.error(signInResult.error)
-        return
+        throw new Error(signInResult.error)
       }
 
       router.push("/dasbor")
       router.refresh()
-      toast.success("Masuk berhasil!")
+      toast.success("Berhasil masuk!")
     } catch (error) {
-      toast.error("Terjadi kesalahan saat masuk")
+      if (error instanceof Error) {
+        toast.error(error.message)
+      }
     } finally {
-      setIsLoading(false)
+      if (submitButton) {
+        submitButton.disabled = false
+        submitButton.textContent = "Masuk"
+      }
     }
   }
 
   return (
-    <div className={cn("container max-w-[400px] mx-auto py-10", className)} {...props}>
+    <div className="container max-w-[400px] mx-auto py-10">
       <Card>
         <CardHeader className="space-y-2">
           <CardTitle className="text-2xl text-center">Masuk ke Akun</CardTitle>
@@ -173,8 +173,8 @@ export function FormMasuk({
                 )}
               />
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Memproses..." : "Masuk"}
+              <Button type="submit" className="w-full">
+                Masuk
               </Button>
             </form>
           </Form>
@@ -189,12 +189,6 @@ export function FormMasuk({
           </div>
         </CardFooter>
       </Card>
-
-      <TermsDialog 
-        open={showTerms} 
-        onOpenChange={setShowTerms}
-        onAccept={() => setShowTerms(false)}
-      />
     </div>
   )
 }

@@ -1,6 +1,5 @@
 "use client"
 
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -64,13 +63,9 @@ type Step = "phone" | "otp" | "password"
 const API_URL = process.env.NEXT_PUBLIC_OTP_API_URL || "https://api.rexbot.com"
 const API_KEY = process.env.NEXT_PUBLIC_OTP_API_KEY || "your-api-key"
 
-export function FormLupaPassword({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+export function FormLupaPassword() {
   const [step, setStep] = useState<Step>("phone")
   const [phoneNumber, setPhoneNumber] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
   const [otp, setOtp] = useState("")
   const [timeLeft, setTimeLeft] = useState(180)
   const [canResend, setCanResend] = useState(false)
@@ -118,8 +113,13 @@ export function FormLupaPassword({
   }
 
   const requestOTP = async (phone: string) => {
+    const submitButton = document.querySelector('button[type="submit"]') as HTMLButtonElement
+    if (submitButton) {
+      submitButton.disabled = true
+      submitButton.textContent = "Memproses..."
+    }
+
     try {
-    setIsLoading(true)
       const cleanPhoneNumber = phone.replace(/^\+/, '')
       
       const response = await fetch(`${API_URL}/api/otp/request`, {
@@ -143,17 +143,27 @@ export function FormLupaPassword({
       setStep("otp")
       toast.success("Kode OTP telah dikirim!")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Gagal mengirim OTP")
+      if (error instanceof Error) {
+        toast.error(error.message)
+      }
     } finally {
-      setIsLoading(false)
+      if (submitButton) {
+        submitButton.disabled = false
+        submitButton.textContent = "Lanjutkan"
+      }
     }
   }
 
   const verifyOTP = async () => {
     if (otp.length !== 6) return
 
+    const verifyButton = document.querySelector('button:not([type])') as HTMLButtonElement
+    if (verifyButton) {
+      verifyButton.disabled = true
+      verifyButton.textContent = "Memverifikasi..."
+    }
+
     try {
-      setIsLoading(true)
       const cleanPhoneNumber = phoneNumber.replace(/^\+/, '')
       
       const response = await fetch(`${API_URL}/api/otp/verify`, {
@@ -175,9 +185,14 @@ export function FormLupaPassword({
       toast.success("Verifikasi OTP berhasil!")
       setStep("password")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Verifikasi OTP gagal")
+      if (error instanceof Error) {
+        toast.error(error.message)
+      }
     } finally {
-      setIsLoading(false)
+      if (verifyButton) {
+        verifyButton.disabled = false
+        verifyButton.textContent = "Verifikasi"
+      }
     }
   }
 
@@ -186,8 +201,13 @@ export function FormLupaPassword({
   }
 
   const onSubmitPassword = async (values: PasswordFormValues) => {
+    const submitButton = document.querySelector('button[type="submit"]') as HTMLButtonElement
+    if (submitButton) {
+      submitButton.disabled = true
+      submitButton.textContent = "Menyimpan..."
+    }
+
     try {
-      setIsLoading(true)
       const cleanPhoneNumber = phoneNumber.replace(/^\+/, '')
       
       const response = await fetch("/api/user/change-password", {
@@ -204,17 +224,22 @@ export function FormLupaPassword({
       const data = await response.json()
       if (!response.ok) throw new Error(data.message)
 
-    toast.success("Password berhasil diubah! Silakan masuk dengan password baru Anda.")
-    router.push("/masuk")
+      toast.success("Password berhasil diubah! Silakan masuk dengan password baru Anda.")
+      router.push("/masuk")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Gagal mengubah password")
+      if (error instanceof Error) {
+        toast.error(error.message)
+      }
     } finally {
-      setIsLoading(false)
+      if (submitButton) {
+        submitButton.disabled = false
+        submitButton.textContent = "Simpan Password Baru"
+      }
     }
   }
 
   return (
-    <div className={cn("container max-w-[400px] mx-auto py-10", className)} {...props}>
+    <div className="container max-w-[400px] mx-auto py-10">
       <Card>
         <CardHeader className="space-y-2">
           <CardTitle className="text-2xl text-center">Lupa Password</CardTitle>
@@ -249,8 +274,8 @@ export function FormLupaPassword({
                 )}
               />
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Memproses..." : "Lanjutkan"}
+              <Button type="submit" className="w-full">
+                  Lanjutkan
                 </Button>
               </form>
             </Form>
@@ -263,7 +288,6 @@ export function FormLupaPassword({
                   maxLength={6}
                   value={otp}
                   onChange={(value) => setOtp(value)}
-                  disabled={isLoading}
                   className="gap-2"
                 >
                   <InputOTPGroup>
@@ -281,7 +305,6 @@ export function FormLupaPassword({
                 {canResend ? (
                   <Button
                     variant="link"
-                    disabled={isLoading}
                     onClick={() => requestOTP(phoneNumber)}
                     className="h-auto p-0"
                   >
@@ -296,15 +319,14 @@ export function FormLupaPassword({
 
               <div className="flex flex-col gap-2">
                 <Button
-                  disabled={isLoading || otp.length !== 6}
+                  disabled={otp.length !== 6}
                   onClick={verifyOTP}
                 >
-                  {isLoading ? "Memverifikasi..." : "Verifikasi"}
+                  Verifikasi
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
-                  disabled={isLoading}
                   onClick={() => setStep("phone")}
                   className="gap-2"
                 >
@@ -377,13 +399,12 @@ export function FormLupaPassword({
                 />
 
                 <div className="flex flex-col gap-2">
-                  <Button type="submit" disabled={isLoading}>
-                    {isLoading ? "Menyimpan..." : "Simpan Password Baru"}
+                  <Button type="submit">
+                    Simpan Password Baru
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
-                    disabled={isLoading}
                     onClick={() => setStep("otp")}
                     className="gap-2"
                   >

@@ -77,16 +77,21 @@ export function KontenDasbor() {
       try {
         if (!session?.user?.phone) return
         
-        // Fetch user stats
-        const statsResponse = await fetch(`/api/user/stats?phone=${encodeURIComponent(session.user.phone)}`)
+        // Fetch user stats dan rank secara parallel
+        const [statsResponse, rankResponse] = await Promise.all([
+          fetch(`/api/user/stats?phone=${encodeURIComponent(session.user.phone)}`),
+          fetch(`/api/user/rank?phone=${encodeURIComponent(session.user.phone)}`)
+        ])
+
+        // Handle stats response
         if (!statsResponse.ok) {
-          throw new Error("Gagal mengambil data")
+          const statsError = await statsResponse.json()
+          throw new Error(statsError.error || "Gagal mengambil data statistik")
         }
         const statsData = await statsResponse.json()
         setStats(statsData)
 
-        // Fetch rank info
-        const rankResponse = await fetch(`/api/user/rank?phone=${encodeURIComponent(session.user.phone)}`)
+        // Handle rank response
         if (rankResponse.ok) {
           const rankData = await rankResponse.json()
           setRankInfo(rankData)
@@ -203,8 +208,12 @@ export function KontenDasbor() {
   const handleAutoLevelUpChange = async (checked: boolean) => {
     if (!stats || isUpdating) return
 
+    const autoLevelUpSwitch = document.querySelector('button[role="switch"]') as HTMLButtonElement
+    if (autoLevelUpSwitch) {
+      autoLevelUpSwitch.disabled = true
+    }
+
     try {
-      setIsUpdating(true)
       const response = await fetch('/api/user/autolevelup', {
         method: 'POST',
         headers: {
@@ -216,8 +225,9 @@ export function KontenDasbor() {
         }),
       })
 
+      const result = await response.json()
       if (!response.ok) {
-        throw new Error('Gagal mengubah pengaturan')
+        throw new Error(result.error)
       }
 
       // Update local state
@@ -228,11 +238,15 @@ export function KontenDasbor() {
 
       toast.success(checked ? 'Auto level up diaktifkan' : 'Auto level up dinonaktifkan')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Terjadi kesalahan')
-      // Revert switch state on error
+      if (error instanceof Error) {
+        toast.error(error.message)
+      }
+      // Revert switch state
       setStats(prev => prev)
     } finally {
-      setIsUpdating(false)
+      if (autoLevelUpSwitch) {
+        autoLevelUpSwitch.disabled = false
+      }
     }
   }
 
@@ -408,7 +422,9 @@ export function KontenDasbor() {
             <Coins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.coin}</div>
+            <div className="text-2xl font-bold">
+              {stats?.coin?.toLocaleString('id-ID')}
+            </div>
             <div className="mt-2 flex items-center gap-1">
               <span className="text-xs text-muted-foreground">Saldo koin Anda</span>
             </div>

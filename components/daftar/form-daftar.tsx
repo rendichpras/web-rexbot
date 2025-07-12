@@ -1,6 +1,5 @@
 "use client"
 
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -10,12 +9,6 @@ import {
   CardTitle,
   CardFooter,
 } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { useState } from "react"
 import { Eye, EyeOff } from "lucide-react"
@@ -65,13 +58,9 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-export function FormDaftar({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+export function FormDaftar() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
   const [showOTP, setShowOTP] = useState(false)
   const [formData, setFormData] = useState<FormValues | null>(null)
@@ -96,8 +85,13 @@ export function FormDaftar({
   const handleVerified = async () => {
     if (!formData) return
 
+    const submitButton = document.querySelector('button[type="submit"]') as HTMLButtonElement
+    if (submitButton) {
+      submitButton.disabled = true
+      submitButton.textContent = "Memproses..."
+    }
+
     try {
-      setIsLoading(true)
       const response = await fetch("/api/daftar", {
         method: "POST",
         headers: {
@@ -113,24 +107,25 @@ export function FormDaftar({
       const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.error || "Terjadi kesalahan saat mendaftar")
+        throw new Error(result.error)
       }
 
-      toast.success("Pendaftaran berhasil!")
+      toast.success(result.message)
       router.push("/masuk")
     } catch (error) {
       if (error instanceof Error) {
         toast.error(error.message)
-      } else {
-        toast.error("Terjadi kesalahan saat mendaftar")
       }
     } finally {
-      setIsLoading(false)
+      if (submitButton) {
+        submitButton.disabled = false
+        submitButton.textContent = "Daftar"
+      }
     }
   }
 
   return (
-    <div className={cn("container max-w-[400px] mx-auto py-10", className)} {...props}>
+    <div className="container max-w-[400px] mx-auto py-10">
       <Card>
         <CardHeader className="space-y-2">
           <CardTitle className="text-2xl text-center">Daftar Akun Baru</CardTitle>
@@ -269,6 +264,7 @@ export function FormDaftar({
                       </button>{" "}
                       yang berlaku
                     </div>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -276,9 +272,9 @@ export function FormDaftar({
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isLoading || !form.watch("terms")}
+                disabled={!form.getValues("terms")}
               >
-                {isLoading ? "Memproses..." : "Daftar"}
+                Daftar
               </Button>
             </form>
           </Form>
