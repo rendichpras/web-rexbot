@@ -11,6 +11,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Web Rexbot",
   description: "Web interface for Rexbot",
+  appleWebApp: {
+    title: "Rexbot"
+  }
 };
 
 export default function RootLayout({
@@ -20,7 +23,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id">
-      <head><meta name="apple-mobile-web-app-title" content="Rexbot" /></head>
       <body className={inter.className}>
         <ThemeProvider
           attribute="class"
